@@ -4,17 +4,6 @@
 
 **PythonEXE Maker** 是一个开源且免费的工具，旨在将 Python 脚本转换为独立的可执行文件（EXE）。通过友好的图形用户界面，用户可以轻松配置转换参数，管理多个转换任务，并自定义生成的 EXE 文件的各种属性，如图标、版本信息等。
 
-## Table of Contents
-
-- [PythonEXE Maker](#pythonexe-maker)
-  - [特性](#特性)
-  - [![image](https://github.com/user-attachments/assets/ae5d3ac2-5a33-4bf8-a771-9ee5fa62dc5a)
-](#截图)
-  - [安装](#安装)
-  - [使用说明](#使用说明)
-  - [贡献](#贡献)
-  - [许可证](#许可证)
-  - [联系我们](#联系我们)
 
 ## 特性
 
