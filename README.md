@@ -26,19 +26,19 @@
 
 ### 主界面
 
-![Main Interface](screenshots/main_interface.png)
+![image](https://github.com/user-attachments/assets/5186bea7-476a-4063-ab2e-3a6cc5f5de99)
 
 ### 转换任务管理
 
-![Task Management](screenshots/task_management.png)
+![image](https://github.com/user-attachments/assets/1a0041d9-a731-46e1-825c-45283e99c75b)
 
 ### 日志查看
 
-![Log Viewer](screenshots/log_viewer.png)
+![image](https://github.com/user-attachments/assets/1118b684-42c0-436a-a70a-e8b4da5b1e3d)
 
 ### 关于对话框
 
-![About Dialog](screenshots/about_dialog.png)
+![image](https://github.com/user-attachments/assets/b31b03a7-145f-4f18-936e-617a6c26ec39)
 
 *请将上述截图添加到项目的 `screenshots` 文件夹中，并根据需要调整图片路径。*
 
