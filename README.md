@@ -1,7 +1,3 @@
-Sure！以下是一个详细的 `README.md` 文件模板，您可以根据项目的具体情况进行调整和补充。
-
----
-
 # PythonEXE Maker
 
 ![Logo](logo.png)
@@ -12,7 +8,8 @@ Sure！以下是一个详细的 `README.md` 文件模板，您可以根据项目
 
 - [PythonEXE Maker](#pythonexe-maker)
   - [特性](#特性)
-  - [截图](#截图)
+  - [![image](https://github.com/user-attachments/assets/ae5d3ac2-5a33-4bf8-a771-9ee5fa62dc5a)
+](#截图)
   - [安装](#安装)
   - [使用说明](#使用说明)
   - [贡献](#贡献)
@@ -202,7 +199,3 @@ Sure！以下是一个详细的 `README.md` 文件模板，您可以根据项目
 6. **持续集成（CI）**
 
    为了确保代码质量，可以设置 GitHub Actions 等持续集成工具，自动运行测试和打包。
-
----
-
-希望这个 `README.md` 模板能帮助您顺利发布项目到 GitHub。如有任何问题或需要进一步的帮助，欢迎随时联系！
