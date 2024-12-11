@@ -1,6 +1,7 @@
 # PythonEXE Maker
 
-![Logo](logo.png)
+![Logo](![iogo](https://github.com/user-attachments/assets/4b68fddc-e47f-4a0d-934c-a9bd95ea90a6)
+)
 
 **PythonEXE Maker** 是一个开源且免费的工具，旨在将 Python 脚本转换为独立的可执行文件（EXE）。通过友好的图形用户界面，用户可以轻松配置转换参数，管理多个转换任务，并自定义生成的 EXE 文件的各种属性，如图标、版本信息等。
 
@@ -135,56 +136,3 @@
 - **官方网站**：[https://www.yeahhe.online/](https://www.yeahhe.online/)
 - **论坛主页**：[LINUXDO 论坛](https://www.linuxdo.com/users/yeahhe)
 - **支持链接**：[请开发者喝咖啡](https://b23.tv/Sni5cax)
-
----
-
-## 附加说明
-
-1. **添加 `requirements.txt` 文件**
-
-   为了方便用户安装依赖，建议在项目根目录下添加一个 `requirements.txt` 文件，内容如下：
-
-   ```plaintext
-   PyQt5>=5.15.4
-   Pillow>=8.0.0
-   PyInstaller>=4.0
-   ```
-
-2. **添加 LICENSE 文件**
-
-   在项目根目录下添加一个 `LICENSE` 文件，内容为 [MIT 许可证](https://opensource.org/licenses/MIT)。
-
-3. **添加 Screenshots**
-
-   将项目相关的截图放入 `screenshots` 文件夹，并在 `README.md` 中引用它们。确保在 GitHub 仓库中上传这些图片。
-
-4. **项目结构建议**
-
-   ```plaintext
-   PythonEXE_Maker/
-   ├── screenshots/
-   │   ├── main_interface.png
-   │   ├── task_management.png
-   │   ├── log_viewer.png
-   │   └── about_dialog.png
-   ├── logo.png
-   ├── icon.png
-   ├── PythonEXE_Maker_1.1.py
-   ├── README.md
-   ├── requirements.txt
-   └── LICENSE
-   ```
-
-5. **打包发布**
-
-   您可以使用 GitHub Releases 功能发布已打包好的版本，方便用户下载使用。您可以使用 PyInstaller 将项目本身打包为 EXE 文件：
-
-   ```bash
-   pyinstaller --onefile --windowed --icon=icon.ico PythonEXE_Maker_1.1.py
-   ```
-
-   生成的 EXE 文件会在 `dist` 文件夹中。
-
-6. **持续集成（CI）**
-
-   为了确保代码质量，可以设置 GitHub Actions 等持续集成工具，自动运行测试和打包。
