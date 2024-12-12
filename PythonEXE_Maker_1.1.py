@@ -367,7 +367,7 @@ class AboutDialog(QDialog):
         
         # 获取脚本所在目录
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        logo_path = os.path.join(script_dir, 'logo.png')
+        logo_path = os.path.join(script_dir, 'Icons', 'logo.png')
         
         if os.path.exists(logo_path):
             # 使用文件URL嵌入图片
@@ -534,7 +534,7 @@ class MainWindow(QMainWindow):
 
         # 设置程序窗口图标
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        icon_path = os.path.join(script_dir, 'icon.png')
+        icon_path = os.path.join(script_dir, 'Icons', 'icon.png')
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
         else:
@@ -964,7 +964,7 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    icon_path = os.path.join(script_dir, 'icon.png')
+    icon_path = os.path.join(script_dir, 'Icons', 'icon.png')
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
     else:

@@ -1,6 +1,6 @@
 # PythonEXE Maker
 
-![iogo](https://github.com/user-attachments/assets/b78ea5b7-537b-4416-b886-394ffc291014)
+![logo](Icons/logo.png)
 
 
 **PythonEXE Maker** 是一个开源且免费的工具，旨在将 Python 脚本转换为独立的可执行文件（EXE）。通过友好的图形用户界面，用户可以轻松配置转换参数，管理多个转换任务，并自定义生成的 EXE 文件的各种属性，如图标、版本信息等。
@@ -26,19 +26,19 @@
 
 ### 主界面
 
-![image](https://github.com/user-attachments/assets/5186bea7-476a-4063-ab2e-3a6cc5f5de99)
+![image](./Screenshots/Chinese/MainInterface.png)
 
 ### 转换任务管理
 
-![image](https://github.com/user-attachments/assets/1a0041d9-a731-46e1-825c-45283e99c75b)
+![image](./Screenshots/Chinese/ConversionTaskManagement.png)
 
 ### 日志查看
 
-![image](https://github.com/user-attachments/assets/1118b684-42c0-436a-a70a-e8b4da5b1e3d)
+![image](./Screenshots/Chinese/LogView.png)
 
 ### 关于对话框
 
-![image](https://github.com/user-attachments/assets/b31b03a7-145f-4f18-936e-617a6c26ec39)
+![image](./Screenshots/Chinese/AboutDialog.png)
 
 *请将上述截图添加到项目的 `screenshots` 文件夹中，并根据需要调整图片路径。*
 

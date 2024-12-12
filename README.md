@@ -1,6 +1,6 @@
 # PythonEXE Maker
 
-![iogo](https://github.com/user-attachments/assets/b78ea5b7-537b-4416-b886-394ffc291014)
+![logo](./Icons/logo.png)
 
 **PythonEXE Maker** is an open source and free tool designed to convert Python scripts into standalone executable files (EXE). Through a friendly graphical user interface, users can easily configure conversion parameters, manage multiple conversion tasks, and customize various properties of the generated EXE file, such as icon, version information, etc.
 
@@ -26,19 +26,19 @@
 
 ### Main interface
 
-![image](https://github.com/user-attachments/assets/5186bea7-476a-4063-ab2e-3a6cc5f5de99)
+![image](./Screenshots/Chinese/MainInterface.png)
 
 ### Conversion task management
 
-![image](https://github.com/user-attachments/assets/1a0041d9-a731-46e1-825c-45283e99c75b)
+![image](./Screenshots/Chinese/ConversionTaskManagement.png)
 
 ### Log view
 
-![image](https://github.com/user-attachments/assets/1118b684-42c0-436a-a70a-e8b4da5b1e3d)
+![image](./Screenshots/Chinese/LogView.png)
 
 ### About Dialog
 
-![image](https://github.com/user-attachments/assets/b31b03a7-145f-4f18-936e-617a6c26ec39)
+![image](./Screenshots/Chinese/AboutDialog.png)
 
 *Please add the above screenshot to the `screenshots` folder of your project and adjust the image path as needed. *
 
