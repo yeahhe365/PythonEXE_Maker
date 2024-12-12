@@ -14,13 +14,13 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont, QIcon, QColor
 from PyQt5.QtCore import Qt, QRunnable, QThreadPool, pyqtSignal, QObject
 
-# 尝试导入 Pillow
+# 尝试导入 Pillow (Try to import Pillow)
 try:
     from PIL import Image
 except ImportError:
     Image = None
 
-# 设置日志记录：将日志输出到文件和控制台
+# 设置日志记录：将日志输出到文件和控制台 (Set up logging: output logs to file and console)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
@@ -32,7 +32,7 @@ logging.basicConfig(
 
 
 class WorkerSignals(QObject):
-    """定义Worker线程的信号"""
+    """定义Worker线程的信号 (Defining signals for Worker threads)"""
     status_updated = pyqtSignal(str)
     progress_updated = pyqtSignal(int)
     conversion_finished = pyqtSignal(str, int)
@@ -40,7 +40,7 @@ class WorkerSignals(QObject):
 
 
 class ConvertRunnable(QRunnable):
-    """转换任务的Runnable类"""
+    """转换任务的Runnable类 (Runnable class for conversion tasks) """
     def __init__(self, script_path, convert_mode, output_dir, exe_name, icon_path, file_version,
                  copyright_info, extra_library, additional_options):
         super().__init__()
@@ -102,16 +102,16 @@ class ConvertRunnable(QRunnable):
             self.cleanup_files(version_file_path)
 
     def stop(self):
-        """停止转换任务。"""
+        """停止转换任务。 (Stop the conversion task) """
         self._is_running = False
 
     def update_status(self, message: str):
-        """更新转换状态"""
+        """更新转换状态 (Update conversion status) """
         logging.info(message)
         self.signals.status_updated.emit(message)
 
     def ensure_pyinstaller(self) -> bool:
-        """确保PyInstaller已安装"""
+        """确保PyInstaller已安装 (Make sure PyInstaller is installed) """
         try:
             subprocess.run([sys.executable, '-m', 'PyInstaller', '--version'],
                            check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -128,7 +128,7 @@ class ConvertRunnable(QRunnable):
                 return False
 
     def prepare_pyinstaller_options(self, exe_name: str, output_dir: str) -> list:
-        """准备PyInstaller的命令行选项"""
+        """准备PyInstaller的命令行选项 (Prepare command line options for PyInstaller) """
         options = ['--onefile', '--clean']
         options.append('--console' if self.convert_mode == "命令行模式" else '--windowed')
 
@@ -143,7 +143,7 @@ class ConvertRunnable(QRunnable):
         return options
 
     def handle_icon(self, script_dir: str) -> str:
-        """处理图标文件，支持将PNG转换为ICO"""
+        """处理图标文件，支持将PNG转换为ICO (Process icon files, support converting PNG to ICO) """
         if not Image:
             self.update_status("Pillow 库未安装，无法转换 PNG 图标。请安装 Pillow 或使用 ICO 图标。")
             return ""
@@ -168,7 +168,7 @@ class ConvertRunnable(QRunnable):
             return ""
 
     def create_version_file(self, exe_name: str, script_dir: str) -> str:
-        """创建版本信息文件"""
+        """创建版本信息文件 (Create version information file)"""
         try:
             from PyInstaller.utils.win32.versionfile import (
                 VSVersionInfo, FixedFileInfo, StringFileInfo, StringTable, StringStruct, VarFileInfo, VarStruct
@@ -225,7 +225,7 @@ class ConvertRunnable(QRunnable):
             return ""
 
     def run_pyinstaller(self, options: list) -> bool:
-        """运行PyInstaller进行转换"""
+        """运行PyInstaller进行转换 (Run PyInstaller to convert) """
         cmd = [sys.executable, '-m', 'PyInstaller'] + options + [self.script_path]
         self.update_status(f"执行命令: {' '.join(cmd)}")
         try:
@@ -240,7 +240,7 @@ class ConvertRunnable(QRunnable):
                     return False
                 line = line.strip()
                 self.update_status(line)
-                # 简单的进度估计
+                # 简单的进度估计 (Simple progress estimate)
                 if "Analyzing" in line:
                     self.signals.progress_updated.emit(30)
                 elif "Collecting" in line:
@@ -259,7 +259,7 @@ class ConvertRunnable(QRunnable):
             return False
 
     def cleanup_files(self, version_file_path: str):
-        """清理临时文件"""
+        """清理临时文件 (Clean temporary files)"""
         script_dir = os.path.dirname(self.script_path)
         if version_file_path and os.path.exists(version_file_path):
             try:
@@ -279,7 +279,7 @@ class ConvertRunnable(QRunnable):
 
 
 class DropArea(QLabel):
-    """拖放区域，允许用户拖入.py文件"""
+    """拖放区域，允许用户拖入.py文件 (Drag and drop area, allowing users to drag in .py files) """
     file_dropped = pyqtSignal(str)
 
     def __init__(self, parent=None):
@@ -316,7 +316,7 @@ class DropArea(QLabel):
 
 
 class ManualDialog(QDialog):
-    """使用说明对话框"""
+    """使用说明对话框 (Instructions dialog box) """
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("使用说明")
@@ -356,7 +356,7 @@ class ManualDialog(QDialog):
 
 
 class AboutDialog(QDialog):
-    """关于对话框"""
+    """关于对话框 (About dialog box) """
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("关于 PythonEXE Maker")
@@ -365,12 +365,12 @@ class AboutDialog(QDialog):
         self.text_browser = QTextBrowser()
         self.text_browser.setFont(QFont("Arial", 12))
         
-        # 获取脚本所在目录
+        # 获取脚本所在目录 (Get the directory where the script is located)
         script_dir = os.path.dirname(os.path.abspath(__file__))
         logo_path = os.path.join(script_dir, 'Icons', 'logo.png')
         
         if os.path.exists(logo_path):
-            # 使用文件URL嵌入图片
+            # 使用文件URL嵌入图片 (Embed image using file URL)
             logo_url = 'file://' + logo_path.replace('\\', '/')
             logo_html = f'<img src="{logo_url}" alt="Logo" width="200"><br>'
         else:
@@ -393,7 +393,7 @@ class AboutDialog(QDialog):
 
 
 class LogViewerDialog(QDialog):
-    """日志查看对话框"""
+    """日志查看对话框 (Log viewing dialog box) """
     def __init__(self, parent=None, log_path="app.log"):
         super().__init__(parent)
         self.setWindowTitle("查看日志文件")
@@ -418,7 +418,7 @@ class LogViewerDialog(QDialog):
 
 
 class MainWindow(QMainWindow):
-    """主窗口"""
+    """主窗口 (Main window) """
     def __init__(self):
         super().__init__()
         self.setWindowTitle("PythonEXE Maker")
@@ -435,35 +435,35 @@ class MainWindow(QMainWindow):
         self.connect_signals()
 
     def init_ui(self):
-        # 创建中央部件
+        # 创建中央部件 (Create central widget)
         central_widget = QWidget()
         main_layout = QVBoxLayout(central_widget)
 
-        # 菜单栏
+        # 菜单栏 (Menu bar)
         self.init_menu()
 
         splitter = QSplitter(Qt.Horizontal)
 
-        # 左侧设置与操作区
+        # 左侧设置与操作区 (Settings and operation area on the left)
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
         left_layout.addWidget(self.init_settings_group())
         left_layout.addLayout(self.init_button_group())
         splitter.addWidget(left_widget)
 
-        # 右侧标签页 (任务管理、日志)
+        # 右侧标签页 (任务管理、日志) (Right tab (task management, log))
         self.tab_widget = QTabWidget()
         self.tab_widget.setTabPosition(QTabWidget.North)
 
-        # "任务管理"选项卡
+        # "任务管理"选项卡 ("Task Management" tab)
         task_tab = QWidget()
         task_tab_layout = QVBoxLayout(task_tab)
 
-        # 脚本管理区
+        # 脚本管理区 (Script management area)
         script_group = QGroupBox("脚本管理")
         script_layout = QVBoxLayout()
 
-        # 拖拽区与浏览按钮
+        # 拖拽区与浏览按钮 (Drag area and browse button)
         drop_browse_layout = QHBoxLayout()
         self.drop_area = DropArea(self)
         self.drop_area.file_dropped.connect(self.add_script_path)
@@ -478,7 +478,7 @@ class MainWindow(QMainWindow):
 
         script_layout.addLayout(drop_browse_layout)
 
-        # 脚本列表
+        # 脚本列表 (Script list)
         self.script_list = QListWidget()
         self.script_list.setToolTip("已选择的 Python 脚本列表，双击可移除。")
         self.script_list.itemDoubleClicked.connect(self.remove_script)
@@ -487,7 +487,7 @@ class MainWindow(QMainWindow):
         script_group.setLayout(script_layout)
         task_tab_layout.addWidget(script_group)
 
-        # 任务进度区域
+        # 任务进度区域 (Task progress area)
         task_progress_group = QGroupBox("转换任务进度")
         task_progress_layout = QVBoxLayout(task_progress_group)
 
@@ -504,23 +504,23 @@ class MainWindow(QMainWindow):
 
         self.tab_widget.addTab(task_tab, "任务管理")
 
-        # "日志"选项卡
+        # "日志"选项卡 ("Log" tab)
         log_tab = QWidget()
         log_tab_layout = QVBoxLayout(log_tab)
 
-        # 日志文本
+        # 日志文本 (Log text)
         self.status_text_edit = QTextEdit()
         self.status_text_edit.setReadOnly(True)
         self.status_text_edit.setFont(QFont("Courier New", 10))
         log_tab_layout.addWidget(self.status_text_edit)
 
-        # 全局进度条
+        # 全局进度条 (Global progress bar)
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
         self.progress_bar.hide()
         log_tab_layout.addWidget(self.progress_bar)
 
-        # 状态栏
+        # 状态栏 (Status bar)
         self.status_bar = QStatusBar()
         log_tab_layout.addWidget(self.status_bar)
 
@@ -532,7 +532,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(splitter)
         self.setCentralWidget(central_widget)
 
-        # 设置程序窗口图标
+        # 设置程序窗口图标 (Set program window icon)
         script_dir = os.path.dirname(os.path.abspath(__file__))
         icon_path = os.path.join(script_dir, 'Icons', 'icon.png')
         if os.path.exists(icon_path):
@@ -543,13 +543,13 @@ class MainWindow(QMainWindow):
     def init_menu(self):
         menubar = self.menuBar()
 
-        # 文件菜单
+        # 文件菜单 (File menu)
         file_menu = menubar.addMenu('文件')
         exit_action = QAction('退出', self)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
-        # 帮助菜单
+        # 帮助菜单 (Help menu)
         help_menu = menubar.addMenu('帮助')
         manual_action = QAction('使用说明', self)
         manual_action.triggered.connect(self.show_manual)
@@ -575,18 +575,18 @@ class MainWindow(QMainWindow):
         support_action.triggered.connect(self.open_bilibili_link)
         help_menu.addAction(support_action)
 
-        # 日志菜单
+        # 日志菜单 (Log menu)
         log_menu = menubar.addMenu('日志')
         view_log_action = QAction('查看日志文件', self)
         view_log_action.triggered.connect(self.view_log_file)
         log_menu.addAction(view_log_action)
 
     def init_settings_group(self) -> QGroupBox:
-        """初始化基本设置、EXE信息和高级设置的组"""
+        """初始化基本设置、EXE信息和高级设置的组 (Initialize the group of basic settings, EXE information and advanced settings) """
         settings_group = QGroupBox("基本设置")
         settings_layout = QGridLayout()
 
-        # 转换模式
+        # 转换模式 (Conversion mode)
         mode_label = QLabel("转换模式:")
         self.mode_combo = QComboBox()
         self.mode_combo.addItems(["GUI 模式", "命令行模式"])
@@ -594,7 +594,7 @@ class MainWindow(QMainWindow):
         settings_layout.addWidget(mode_label, 0, 0)
         settings_layout.addWidget(self.mode_combo, 0, 1)
 
-        # 输出目录
+        # 输出目录 (Output directory)
         output_label = QLabel("输出目录:")
         self.output_edit = QLineEdit()
         self.output_edit.setPlaceholderText("默认与源文件同目录")
@@ -608,7 +608,7 @@ class MainWindow(QMainWindow):
         settings_layout.addWidget(output_label, 1, 0)
         settings_layout.addLayout(output_h_layout, 1, 1)
 
-        # EXE 信息
+        # EXE 信息 (EXE information)
         exe_info_group = QGroupBox("EXE 信息")
         exe_info_layout = QGridLayout()
 
@@ -648,11 +648,11 @@ class MainWindow(QMainWindow):
         exe_info_group.setLayout(exe_info_layout)
         settings_layout.addWidget(exe_info_group, 2, 0, 1, 2)
 
-        # 高级设置
+        # 高级设置 (Advanced settings)
         advanced_settings_group = QGroupBox("高级设置")
         advanced_settings_layout = QGridLayout()
 
-        # 额外模块
+        # 额外模块 (Extra modules)
         library_label = QLabel("额外模块:")
         self.library_edit = QLineEdit()
         self.library_edit.setPlaceholderText("隐藏导入的模块，逗号分隔")
@@ -660,7 +660,7 @@ class MainWindow(QMainWindow):
         advanced_settings_layout.addWidget(library_label, 0, 0)
         advanced_settings_layout.addWidget(self.library_edit, 0, 1)
 
-        # 附加参数
+        # 附加参数 (Additional arguments)
         options_label = QLabel("附加参数:")
         self.options_edit = QLineEdit()
         self.options_edit.setPlaceholderText("例如：--add-data 'data.txt;.'")
@@ -675,7 +675,7 @@ class MainWindow(QMainWindow):
         return settings_group
 
     def init_button_group(self) -> QHBoxLayout:
-        """初始化开始和取消转换按钮"""
+        """初始化开始和取消转换按钮 (Initialize start and cancel conversion buttons) """
         button_layout = QHBoxLayout()
 
         self.start_button = QPushButton("开始转换")
@@ -695,11 +695,11 @@ class MainWindow(QMainWindow):
         return button_layout
 
     def connect_signals(self):
-        """连接必要的信号"""
+        """连接必要的信号 (Connect necessary signals) """
         pass
 
     def add_script_path(self, path: str):
-        """添加脚本路径到列表中"""
+        """添加脚本路径到列表中 (Add script path to list) """
         if path not in self.script_paths:
             self.script_paths.append(path)
             self.script_list.addItem(QListWidgetItem(path))
@@ -707,7 +707,7 @@ class MainWindow(QMainWindow):
             self.update_start_button_state()
 
     def browse_files(self):
-        """浏览并添加Python脚本文件"""
+        """浏览并添加Python脚本文件 (Browse and add the Python script file) """
         script_paths, _ = QFileDialog.getOpenFileNames(self, "选择 Python 文件", "", "Python Files (*.py)")
         if script_paths:
             added = False
@@ -721,19 +721,19 @@ class MainWindow(QMainWindow):
                 self.update_start_button_state()
 
     def browse_output_dir(self):
-        """浏览并设置输出目录"""
+        """浏览并设置输出目录 (Browse and set the output directory) """
         output_dir = QFileDialog.getExistingDirectory(self, "选择输出目录")
         if output_dir:
             self.output_edit.setText(output_dir)
 
     def browse_icon_file(self):
-        """浏览并设置图标文件"""
+        """浏览并设置图标文件 (Browse and set the icon file) """
         icon_path, _ = QFileDialog.getOpenFileName(self, "选择图标文件", "", "Image Files (*.ico *.png)")
         if icon_path:
             self.icon_edit.setText(icon_path)
 
     def remove_script(self, item: QListWidgetItem):
-        """移除脚本"""
+        """移除脚本 (Remove script) """
         path = item.text()
         if path in self.script_paths:
             self.script_paths.remove(path)
@@ -742,7 +742,7 @@ class MainWindow(QMainWindow):
             self.update_start_button_state()
 
     def start_conversion(self):
-        """开始转换所有选中的脚本"""
+        """开始转换所有选中的脚本 (Start converting all selected scripts) """
         if not self.script_paths:
             QMessageBox.warning(self, "警告", "请先选择至少一个 Python 脚本。")
             return
@@ -768,7 +768,7 @@ class MainWindow(QMainWindow):
 
         self.tasks = []
         self.task_widgets = {}
-        # 清空任务进度显示区域
+        # 清空任务进度显示区域 (Clear the task progress display area)
         for i in reversed(range(self.task_layout.count())):
             w = self.task_layout.itemAt(i).widget()
             if w:
@@ -808,7 +808,7 @@ class MainWindow(QMainWindow):
         self.cancel_button.setEnabled(True)
 
     def cancel_conversion(self):
-        """取消所有正在进行的转换任务"""
+        """取消所有正在进行的转换任务 (Cancel all ongoing conversion tasks) """
         if hasattr(self, 'tasks') and self.tasks:
             for task in self.tasks:
                 task.stop()
@@ -817,7 +817,7 @@ class MainWindow(QMainWindow):
             self.cancel_button.setEnabled(False)
 
     def conversion_finished(self, exe_path: str, exe_size: int, script_path: str):
-        """处理转换完成的情况"""
+        """处理转换完成的情况 (Handle conversion completion) """
         self.append_status(f"转换成功! EXE 文件位于: {exe_path} (大小: {exe_size} KB)")
         task_widget = self.task_widgets.get(script_path)
         if task_widget:
@@ -827,7 +827,7 @@ class MainWindow(QMainWindow):
             self.conversion_complete()
 
     def conversion_failed(self, error_message: str, script_path: str):
-        """处理转换失败的情况"""
+        """处理转换失败的情况 (Handling conversion failure situations) """
         self.append_status(f"<span style='color:red;'>{error_message}</span>")
         task_widget = self.task_widgets.get(script_path)
         if task_widget:
@@ -837,19 +837,19 @@ class MainWindow(QMainWindow):
             self.conversion_complete()
 
     def conversion_complete(self):
-        """所有转换任务完成后的处理"""
+        """所有转换任务完成后的处理 (Processing after completion of all conversion tasks) """
         self.toggle_ui_elements(True)
         self.progress_bar.hide()
         self.status_bar.showMessage("转换完成。")
         self.tasks = []
 
     def validate_version(self, version: str) -> bool:
-        """验证版本号格式"""
+        """验证版本号格式 (Verify version number format) """
         parts = version.split('.')
         return len(parts) == 4 and all(part.isdigit() for part in parts)
 
     def toggle_ui_elements(self, enabled: bool):
-        """启用或禁用UI元素"""
+        """启用或禁用UI元素 (Enable or disable UI elements) """
         self.start_button.setEnabled(enabled and bool(self.script_paths))
         self.mode_combo.setEnabled(enabled)
         self.output_edit.setEnabled(enabled)
@@ -864,7 +864,7 @@ class MainWindow(QMainWindow):
             self.cancel_button.setEnabled(False)
 
     def append_status(self, text: str):
-        """在日志中追加状态信息"""
+        """在日志中追加状态信息 (Append status information to the log) """
         logging.info(text)
         if "<span style='color:red;'>" in text:
             self.status_text_edit.setTextColor(QColor('red'))
@@ -874,34 +874,34 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage(text)
 
     def update_status(self, status: str, script_path: str):
-        """更新特定脚本的状态"""
+        """更新特定脚本的状态 (Update the status of a specific script) """
         self.append_status(f"[{os.path.basename(script_path)}] {status}")
         task_widget = self.task_widgets.get(script_path)
         if task_widget:
             task_widget['log'].append(status)
 
     def update_progress(self, value: int, script_path: str):
-        """更新特定脚本的进度条"""
+        """更新特定脚本的进度条 (Update the progress bar of a specific script) """
         task_widget = self.task_widgets.get(script_path)
         if task_widget:
             task_widget['progress'].setValue(value)
 
     def show_manual(self):
-        """显示使用说明对话框"""
+        """显示使用说明对话框 (Show instructions dialog box) """
         manual_dialog = ManualDialog(self)
         manual_dialog.exec_()
 
     def show_about(self):
-        """显示关于对话框"""
+        """显示关于对话框 (Show about dialog) """
         about_dialog = AboutDialog(self)
         about_dialog.exec_()
 
     def open_bilibili_link(self):
-        """打开支持开发者的链接"""
+        """打开支持开发者的链接 (Open the link to support developers) """
         webbrowser.open("https://b23.tv/Sni5cax")
 
     def view_log_file(self):
-        """查看日志文件"""
+        """查看日志文件 (View log files) """
         log_path = os.path.abspath("app.log")
         if os.path.exists(log_path):
             log_viewer = LogViewerDialog(self, log_path)
@@ -910,7 +910,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "警告", "日志文件不存在。")
 
     def create_task_widget(self, script_path: str) -> dict:
-        """创建一个任务的显示小部件"""
+        """创建一个任务的显示小部件 (Create a task display widget) """
         widget = QFrame()
         widget.setFrameShape(QFrame.StyledPanel)
         layout = QHBoxLayout(widget)
@@ -939,21 +939,21 @@ class MainWindow(QMainWindow):
         return {'widget': widget, 'script_label': script_label, 'progress': progress, 'status': status, 'log': log}
 
     def load_settings(self):
-        """加载保存的设置"""
-        # 此方法已被移除，因为不再使用 QSettings
+        """加载保存的设置 (Load saved settings) """
+        # 此方法已被移除，因为不再使用 QSettings (This method has been removed as QSettings is no longer used)
         pass
 
     def save_settings(self):
-        """保存当前设置"""
-        # 此方法已被移除，因为不再使用 QSettings
+        """保存当前设置 (Save current settings)"""
+        # 此方法已被移除，因为不再使用 QSettings (This method has been removed as QSettings is no longer used)
         pass
 
     def update_start_button_state(self):
-        """更新开始按钮的启用状态"""
+        """更新开始按钮的启用状态 (Update the enabled state of the start button) """
         self.start_button.setEnabled(bool(self.script_paths))
 
     def closeEvent(self, event):
-        """关闭窗口前的处理"""
+        """关闭窗口前的处理 (Processing before closing the window) """
         if hasattr(self, 'tasks') and self.tasks:
             for task in self.tasks:
                 task.stop()
