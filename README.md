@@ -40,8 +40,6 @@
 
 ![image](./Screenshots/Chinese/AboutDialog.png)
 
-*Please add the above screenshot to the `screenshots` folder of your project and adjust the image path as needed. *
-
 ## Installation
 
 ### Prerequisites
