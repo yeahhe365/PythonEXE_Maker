@@ -865,14 +865,10 @@ class MainWindow(QMainWindow):
         else:
             self.status_text_edit.setTextColor(QColor('black'))
         self.status_text_edit.append(text)
-        # self.status_bar.showMessage(text)
 
     def update_status(self, status: str, script_path: str):
         """Update the status of a specific script"""
         self.append_status(f"[{os.path.basename(script_path)}] {status}")
-        # task_widget = self.task_widgets.get(script_path)
-        # if task_widget:
-        #     task_widget['log'].append(status)
 
     def update_progress(self, value: int, script_path: str):
         """Update the progress bar of a specific script"""
@@ -924,13 +920,6 @@ class MainWindow(QMainWindow):
         status = QLabel(self.tr("Waiting..."))
         status.setWordWrap(True)
         layout.addWidget(status)
-
-        # log = QTextEdit()
-        # log.setReadOnly(True)
-        # log.setFont(QFont("Courier New", 9))
-        # log.setFixedHeight(50)
-        # log.setToolTip(self.tr("Conversion log snippet for this task"))
-        # layout.addWidget(log)
 
         return {'widget': widget, 'script_label': script_label, 'progress': progress, 'status': status} # , 'log': log}
 
