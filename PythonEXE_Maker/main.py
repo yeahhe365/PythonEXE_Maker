@@ -3,24 +3,22 @@ import sys
 import subprocess
 import logging
 import webbrowser
-from textwrap import dedent
 
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton, QFileDialog, QMessageBox,
-    QTextEdit, QLineEdit, QHBoxLayout, QDialog, QTextBrowser, QProgressBar,
-    QGridLayout, QComboBox, QGroupBox, QMenuBar, QAction, QStatusBar, QListWidget,
-    QListWidgetItem, QSplitter, QScrollArea, QFrame, QTabWidget
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QLabel, QPushButton, QFileDialog, QMessageBox, QTextEdit, QLineEdit,
+    QDialog, QProgressBar, QGroupBox, QMenuBar, QAction, QStatusBar, QListWidget,
+    QListWidgetItem, QSplitter, QScrollArea, QFrame, QTabWidget, QComboBox
 )
 from PyQt5.QtGui import QFont, QIcon, QColor
-from PyQt5.QtCore import Qt, QRunnable, QThreadPool, pyqtSignal, QObject
+from PyQt5.QtCore import Qt, QThreadPool, QSize
 
-# 尝试导入 Pillow 用于图标格式转换
-try:
-    from PIL import Image
-except ImportError:
-    Image = None
+# 引入我们在其它模块里定义的类和函数 (假设本地已有)
+from converters import ConvertRunnable
+from dialogs import ManualDialog, AboutDialog, LogViewerDialog
+from widgets import DropArea
 
-# 设置日志记录：将日志输出到文件和控制台
+# ======= 日志配置 =======
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
@@ -31,451 +29,75 @@ logging.basicConfig(
 )
 
 
-class WorkerSignals(QObject):
-    """定义Worker线程的信号"""
-    status_updated = pyqtSignal(str)
-    progress_updated = pyqtSignal(int)
-    conversion_finished = pyqtSignal(str, int)
-    conversion_failed = pyqtSignal(str)
-
-
-class ConvertRunnable(QRunnable):
-    """用于执行转换任务的Runnable类"""
-
-    def __init__(self, script_path, convert_mode, output_dir, exe_name, icon_path, file_version,
-                 copyright_info, extra_library, additional_options):
-        super().__init__()
-        self.script_path = script_path
-        self.convert_mode = convert_mode
-        self.output_dir = output_dir
-        self.exe_name = exe_name
-        self.icon_path = icon_path
-        self.file_version = file_version
-        self.copyright_info = copyright_info
-        self.extra_library = extra_library
-        self.additional_options = additional_options
-        self.signals = WorkerSignals()
-        self._is_running = True
-
-    def run(self):
-        version_file_path = None
-        try:
-            script_dir = os.path.dirname(self.script_path)
-            exe_name = self.exe_name or os.path.splitext(os.path.basename(self.script_path))[0]
-            output_dir = self.output_dir or script_dir
-
-            if not self.ensure_pyinstaller():
-                return
-
-            options = self.prepare_pyinstaller_options(exe_name, output_dir)
-            if self.icon_path:
-                icon_file = self.handle_icon(script_dir)
-                if icon_file:
-                    options.append(f'--icon={icon_file}')
-
-            if self.file_version or self.copyright_info:
-                version_file_path = self.create_version_file(exe_name, script_dir)
-                if version_file_path:
-                    options.append(f'--version-file={version_file_path}')
-
-            self.update_status("开始转换...")
-            success = self.run_pyinstaller(options)
-
-            if success:
-                exe_path = os.path.join(output_dir, exe_name + '.exe')
-                if os.path.exists(exe_path):
-                    exe_size = os.path.getsize(exe_path) // 1024
-                    self.signals.conversion_finished.emit(exe_path, exe_size)
-                    self.update_status(f"转换成功! EXE 文件位于: {exe_path} (大小: {exe_size} KB)")
-                else:
-                    error_message = "转换完成，但未找到生成的 EXE 文件。"
-                    self.update_status(error_message)
-                    self.signals.conversion_failed.emit(error_message)
-            else:
-                error_message = "转换失败，请查看上面的错误信息。"
-                self.update_status(error_message)
-                self.signals.conversion_failed.emit(error_message)
-        except Exception as e:
-            error_message = f"转换过程中出现异常: {e}"
-            self.update_status(error_message)
-            self.signals.conversion_failed.emit(error_message)
-        finally:
-            # 在任务结束时将_is_running置为False，以便主窗口检测到任务已完成
-            self._is_running = False
-            self.cleanup_files(version_file_path)
-
-    def stop(self):
-        """停止转换任务。"""
-        self._is_running = False
-
-    def update_status(self, message: str):
-        """更新转换状态（日志与UI）"""
-        logging.info(message)
-        self.signals.status_updated.emit(message)
-
-    def ensure_pyinstaller(self) -> bool:
-        """确保PyInstaller已安装"""
-        try:
-            subprocess.run([sys.executable, '-m', 'PyInstaller', '--version'],
-                           check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            self.update_status("已检测到 PyInstaller。")
-            return True
-        except subprocess.CalledProcessError:
-            self.update_status("未检测到 PyInstaller，正在尝试安装...")
-            try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
-                self.update_status("PyInstaller 安装成功。")
-                return True
-            except subprocess.CalledProcessError as e:
-                self.update_status(f"安装 PyInstaller 失败: {e}")
-                return False
-
-    def prepare_pyinstaller_options(self, exe_name: str, output_dir: str) -> list:
-        """准备PyInstaller的命令行参数"""
-        options = ['--onefile', '--clean']
-        options.append('--console' if self.convert_mode == "命令行模式" else '--windowed')
-
-        if self.extra_library:
-            hidden_imports = [lib.strip() for lib in self.extra_library.split(',') if lib.strip()]
-            options += [f'--hidden-import={lib}' for lib in hidden_imports]
-
-        if self.additional_options:
-            options += self.additional_options.strip().split()
-
-        options += ['--distpath', output_dir, '-n', exe_name]
-        return options
-
-    def handle_icon(self, script_dir: str) -> str:
-        """处理图标文件，若为 PNG 则尝试转换为 ICO"""
-        if not Image:
-            self.update_status("Pillow 库未安装，无法转换 PNG 图标。请安装 Pillow 或使用 ICO 图标。")
-            return ""
-
-        lower_icon = self.icon_path.lower()
-        if lower_icon.endswith('.png'):
-            self.update_status("检测到 PNG 图标，正在转换为 ICO 格式...")
-            try:
-                img = Image.open(self.icon_path)
-                ico_path = os.path.join(script_dir, 'icon_converted.ico')
-                img.save(ico_path, format='ICO',
-                         sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
-                self.update_status("图标转换成功。")
-                return ico_path
-            except Exception as e:
-                self.update_status(f"PNG 转 ICO 失败: {e}")
-                return ""
-        elif lower_icon.endswith('.ico'):
-            return self.icon_path
-        else:
-            self.update_status("不支持的图标格式，仅支持 .png 和 .ico 格式。")
-            return ""
-
-    def create_version_file(self, exe_name: str, script_dir: str) -> str:
-        """创建版本信息文件"""
-        try:
-            from PyInstaller.utils.win32.versioninfo import (
-                VSVersionInfo, FixedFileInfo, StringFileInfo, StringTable, StringStruct, VarFileInfo, VarStruct
-            )
-        except ImportError as e:
-            self.update_status(f"导入版本信息类失败: {e}")
-            return ""
-
-        version_numbers = self.file_version.split('.') if self.file_version else ['1', '0', '0', '0']
-        if len(version_numbers) != 4 or not all(num.isdigit() for num in version_numbers):
-            version_numbers = ['1', '0', '0', '0']
-
-        version_info = VSVersionInfo(
-            ffi=FixedFileInfo(
-                filevers=tuple(map(int, version_numbers)),
-                prodvers=tuple(map(int, version_numbers)),
-                mask=0x3f,
-                flags=0x0,
-                OS=0x40004,
-                fileType=0x1,
-                subtype=0x0,
-                date=(0, 0)
-            ),
-            kids=[
-                StringFileInfo(
-                    [
-                        StringTable(
-                            '040904E4',
-                            [
-                                StringStruct('CompanyName', ''),
-                                StringStruct('FileDescription', exe_name),
-                                StringStruct('FileVersion', '.'.join(version_numbers)),
-                                StringStruct('InternalName', f'{exe_name}.exe'),
-                                StringStruct('LegalCopyright', self.copyright_info),
-                                StringStruct('OriginalFilename', f'{exe_name}.exe'),
-                                StringStruct('ProductName', exe_name),
-                                StringStruct('ProductVersion', '.'.join(version_numbers))
-                            ]
-                        )
-                    ]
-                ),
-                VarFileInfo([VarStruct('Translation', [0x0409, 0x04B0])])
-            ]
-        )
-
-        version_file_path = os.path.join(script_dir, 'version_info.txt')
-        try:
-            with open(version_file_path, 'w', encoding='utf-8') as vf:
-                vf.write(version_info.__str__())
-            self.update_status("生成版本信息文件。")
-            return version_file_path
-        except Exception as e:
-            self.update_status(f"版本信息文件生成失败: {e}")
-            return ""
-
-    def run_pyinstaller(self, options: list) -> bool:
-        """运行PyInstaller进行转换"""
-        cmd = [sys.executable, '-m', 'PyInstaller'] + options + [self.script_path]
-        self.update_status(f"执行命令: {' '.join(cmd)}")
-        try:
-            process = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True
-            )
-
-            for line in process.stdout:
-                if not self._is_running:
-                    process.terminate()
-                    self.update_status("转换已被用户取消。")
-                    return False
-                line = line.strip()
-                self.update_status(line)
-                # 简单的进度估计
-                if "Analyzing" in line:
-                    self.signals.progress_updated.emit(30)
-                elif "Collecting" in line:
-                    self.signals.progress_updated.emit(50)
-                elif "Building" in line:
-                    self.signals.progress_updated.emit(70)
-                elif "completed successfully" in line.lower():
-                    self.signals.progress_updated.emit(100)
-
-            process.stdout.close()
-            process.wait()
-
-            return process.returncode == 0
-        except Exception as e:
-            self.update_status(f"转换过程中出现异常: {e}")
-            return False
-
-    def cleanup_files(self, version_file_path: str):
-        """清理临时文件"""
-        script_dir = os.path.dirname(self.script_path)
-        if version_file_path and os.path.exists(version_file_path):
-            try:
-                os.remove(version_file_path)
-                self.update_status("删除版本信息文件。")
-            except Exception as e:
-                self.update_status(f"无法删除版本信息文件: {e}")
-
-        if self.icon_path and self.icon_path.lower().endswith('.png'):
-            ico_path = os.path.join(script_dir, 'icon_converted.ico')
-            if os.path.exists(ico_path):
-                try:
-                    os.remove(ico_path)
-                    self.update_status("删除临时 ICO 文件。")
-                except Exception as e:
-                    self.update_status(f"无法删除临时 ICO 文件: {e}")
-
-
-class DropArea(QLabel):
-    """拖放区域，用于拖入.py文件"""
-    file_dropped = pyqtSignal(str)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setAcceptDrops(True)
-        self.setText("拖入 .py 文件")
-        self.setAlignment(Qt.AlignCenter)
-        self.setStyleSheet("""
-            QLabel {
-                border: 2px dashed #aaa;
-                min-height: 80px;
-                font-size: 14px;
-                color: #555;
-                padding: 10px;
-            }
-            QLabel:hover {
-                border-color: #777;
-            }
-        """)
-
-    def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls() and any(url.toLocalFile().endswith('.py') for url in event.mimeData().urls()):
-            event.acceptProposedAction()
-        else:
-            event.ignore()
-
-    def dropEvent(self, event):
-        paths = [url.toLocalFile() for url in event.mimeData().urls() if url.toLocalFile().endswith(".py")]
-        if paths:
-            for path in paths:
-                self.file_dropped.emit(path)
-        else:
-            QMessageBox.warning(self, "警告", "请拖放 Python 文件 (.py) 到窗口中。")
-
-
-class ManualDialog(QDialog):
-    """使用说明对话框"""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("使用说明")
-        self.setFixedSize(800, 600)
-        layout = QVBoxLayout()
-        self.text_browser = QTextBrowser()
-        self.text_browser.setFont(QFont("Arial", 14))
-        self.text_browser.setHtml(self.manual_text())
-        layout.addWidget(self.text_browser)
-        self.setLayout(layout)
-
-    @staticmethod
-    def manual_text():
-        return """
-        <h1>PythonEXE Maker 使用说明</h1>
-        <p>本程序用于将 Python 脚本转换为可执行文件 (EXE)。以下是使用步骤：</p>
-        <ol>
-            <li>在左侧面板中配置转换模式、输出目录、EXE 信息和其它参数。</li>
-            <li>在右侧“任务管理”选项卡中，通过拖拽或浏览文件添加 Python 脚本。</li>
-            <li>点击 “开始转换” 按钮开始转换，如需中途取消可点击“取消转换”。</li>
-            <li>转换进度及日志可在“日志”选项卡中查看。</li>
-        </ol>
-        <p><strong>注意事项:</strong></p>
-        <ul>
-            <li>图标文件支持 .png 和 .ico 格式 (.png 将自动转换为 .ico)。</li>
-            <li>如 Python 脚本使用了外部库或资源文件，请确保在“额外模块”或“附加参数”中正确指定。</li>
-            <li>“额外模块”处可输入需要隐藏导入的模块名称（多个用逗号分隔）。</li>
-            <li>“附加参数”可输入 PyInstaller 的其它命令行参数。</li>
-        </ul>
-        <p><strong>更多信息:</strong></p>
-        <ul>
-            <li><a href="https://github.com/yeahhe365/PythonEXE_Maker">GitHub 项目地址</a></li>
-            <li><a href="https://www.yeahhe.online/">官方网站</a></li>
-            <li><a href="https://www.linuxdo.com/users/yeahhe">LINUXDO 论坛主页</a></li>
-        </ul>
-        """
-
-
-class AboutDialog(QDialog):
-    """关于对话框"""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("关于 PythonEXE Maker")
-        self.setFixedSize(600, 400)
-        layout = QVBoxLayout()
-        self.text_browser = QTextBrowser()
-        self.text_browser.setFont(QFont("Arial", 12))
-
-        # 获取脚本所在目录
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        logo_path = os.path.join(script_dir, 'logo.png')
-
-        if os.path.exists(logo_path):
-            logo_url = 'file://' + logo_path.replace('\\', '/')
-            logo_html = f'<img src="{logo_url}" alt="Logo" width="200"><br>'
-        else:
-            logo_html = ''
-
-        self.text_browser.setHtml(logo_html + self.about_text())
-        layout.addWidget(self.text_browser)
-        self.setLayout(layout)
-
-    def about_text(self):
-        return """
-        <h1>关于 PythonEXE Maker</h1>
-        <p>版本：1.1.0</p>
-        <p>作者：yeahhe365</p>
-        <p>这是一个开源免费工具，用于将 Python 脚本转换为可执行文件。</p>
-        <p>如有问题或建议，欢迎在 GitHub 提交 issue 或查看源代码：</p>
-        <p><a href="https://github.com/yeahhe365/PythonEXE_Maker">https://github.com/yeahhe365/PythonEXE_Maker</a></p>
-        <p><strong>感谢您的使用与支持！</strong></p>
-        """
-
-
-class LogViewerDialog(QDialog):
-    """日志查看对话框"""
-    def __init__(self, parent=None, log_path="app.log"):
-        super().__init__(parent)
-        self.setWindowTitle("查看日志文件")
-        self.setFixedSize(800, 600)
-        layout = QVBoxLayout()
-        self.text_edit = QTextEdit()
-        self.text_edit.setReadOnly(True)
-        self.text_edit.setFont(QFont("Courier New", 10))
-        layout.addWidget(self.text_edit)
-        self.setLayout(layout)
-        self.load_log(log_path)
-
-    def load_log(self, log_path):
-        if os.path.exists(log_path):
-            try:
-                with open(log_path, 'r', encoding='utf-8') as f:
-                    self.text_edit.setPlainText(f.read())
-            except Exception as e:
-                self.text_edit.setPlainText(f"无法读取日志文件: {e}")
-        else:
-            self.text_edit.setPlainText("日志文件不存在。")
-
-
 class MainWindow(QMainWindow):
-    """主窗口"""
+    """主窗口：包含主要的UI和逻辑"""
     def __init__(self):
         super().__init__()
         self.setWindowTitle("PythonEXE Maker")
         self.setGeometry(100, 100, 1300, 900)
         self.setFont(QFont("Arial", 11))
 
+        # 存放脚本路径
         self.script_paths = []
+        # 线程池
         self.thread_pool = QThreadPool()
+        # 转换任务列表
         self.tasks = []
+        # 每个脚本对应的任务UI元素
         self.task_widgets = {}
 
+        # 在此属性中存储“附加文件”的路径
+        self.extra_file_path = None
+
+        # 初始化UI
         self.init_ui()
+        # 应用全局样式表(若需要美化UI，可在这里调用 self.apply_global_stylesheet())
+        # self.apply_global_stylesheet()
+
+        # 检查并更新“开始转换”按钮的可用状态
         self.update_start_button_state()
-        self.connect_signals()
 
     def init_ui(self):
         # 创建中央部件
         central_widget = QWidget()
         main_layout = QVBoxLayout(central_widget)
 
-        # 菜单栏
+        # ============ 菜单栏 ============
         self.init_menu()
 
+        # ============ 左右分割（QSplitter） ============
         splitter = QSplitter(Qt.Horizontal)
 
-        # 左侧设置区
+        # -------- 左侧设置区域 --------
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
         left_layout.addWidget(self.init_settings_group())
         left_layout.addLayout(self.init_button_group())
         splitter.addWidget(left_widget)
 
-        # 右侧标签页 (任务管理、日志)
+        # -------- 右侧Tab标签页（任务管理、日志） --------
         self.tab_widget = QTabWidget()
         self.tab_widget.setTabPosition(QTabWidget.North)
 
-        # "任务管理"选项卡
+        # 1) “任务管理”选项卡
         task_tab = QWidget()
         task_tab_layout = QVBoxLayout(task_tab)
 
-        # 脚本管理区
+        # ------ 脚本管理区 ------
         script_group = QGroupBox("脚本管理")
         script_layout = QVBoxLayout()
 
-        # 拖拽区与浏览按钮
+        # 拖拽区与“浏览文件”按钮
         drop_browse_layout = QHBoxLayout()
-        self.drop_area = DropArea(self)
+        self.drop_area = DropArea(self)  # 自定义拖拽控件（在 widgets.py 中）
         self.drop_area.file_dropped.connect(self.add_script_path)
         drop_browse_layout.addWidget(self.drop_area)
 
         browse_button = QPushButton("浏览文件")
         browse_button.setToolTip("点击选择要转换的 Python 文件，可多选。")
+        # 如果有 Material Icon，可在此设置 browse_button.setIcon(...)
+        browse_button.setFixedHeight(60)
         browse_button.clicked.connect(self.browse_files)
-        browse_button.setFixedHeight(80)
-        browse_button.setStyleSheet("QPushButton { font-size: 14px; }")
         drop_browse_layout.addWidget(browse_button)
 
         script_layout.addLayout(drop_browse_layout)
@@ -489,7 +111,7 @@ class MainWindow(QMainWindow):
         script_group.setLayout(script_layout)
         task_tab_layout.addWidget(script_group)
 
-        # 任务进度区域
+        # ------ 任务进度区域 ------
         task_progress_group = QGroupBox("转换任务进度")
         task_progress_layout = QVBoxLayout(task_progress_group)
 
@@ -506,23 +128,20 @@ class MainWindow(QMainWindow):
 
         self.tab_widget.addTab(task_tab, "任务管理")
 
-        # "日志"选项卡
+        # 2) “日志”选项卡
         log_tab = QWidget()
         log_tab_layout = QVBoxLayout(log_tab)
 
-        # 日志文本
         self.status_text_edit = QTextEdit()
         self.status_text_edit.setReadOnly(True)
         self.status_text_edit.setFont(QFont("Courier New", 10))
         log_tab_layout.addWidget(self.status_text_edit)
 
-        # 全局进度条
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
         self.progress_bar.hide()
         log_tab_layout.addWidget(self.progress_bar)
 
-        # 状态栏
         self.status_bar = QStatusBar()
         log_tab_layout.addWidget(self.status_bar)
 
@@ -534,7 +153,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(splitter)
         self.setCentralWidget(central_widget)
 
-        # 设置程序窗口图标
+        # 设置窗口图标(如有需要)
         script_dir = os.path.dirname(os.path.abspath(__file__))
         icon_path = os.path.join(script_dir, 'icon.png')
         if os.path.exists(icon_path):
@@ -543,6 +162,7 @@ class MainWindow(QMainWindow):
             logging.warning(f"图标文件未找到: {icon_path}")
 
     def init_menu(self):
+        """初始化菜单栏"""
         menubar = self.menuBar()
 
         # 文件菜单
@@ -601,12 +221,15 @@ class MainWindow(QMainWindow):
         self.output_edit = QLineEdit()
         self.output_edit.setPlaceholderText("默认与源文件同目录")
         self.output_edit.setToolTip("设置生成 EXE 文件的输出目录。为空则默认放在源文件同目录下。")
+
         output_button = QPushButton("浏览")
         output_button.setToolTip("选择输出目录。")
         output_button.clicked.connect(self.browse_output_dir)
+
         output_h_layout = QHBoxLayout()
         output_h_layout.addWidget(self.output_edit)
         output_h_layout.addWidget(output_button)
+
         settings_layout.addWidget(output_label, 1, 0)
         settings_layout.addLayout(output_h_layout, 1, 1)
 
@@ -628,6 +251,7 @@ class MainWindow(QMainWindow):
         icon_button = QPushButton("浏览")
         icon_button.setToolTip("选择图标文件。")
         icon_button.clicked.connect(self.browse_icon_file)
+
         icon_h_layout = QHBoxLayout()
         icon_h_layout.addWidget(self.icon_edit)
         icon_h_layout.addWidget(icon_button)
@@ -662,13 +286,14 @@ class MainWindow(QMainWindow):
         advanced_settings_layout.addWidget(library_label, 0, 0)
         advanced_settings_layout.addWidget(self.library_edit, 0, 1)
 
-        # 附加参数
-        options_label = QLabel("附加参数:")
-        self.options_edit = QLineEdit()
-        self.options_edit.setPlaceholderText("例如：--add-data D:\\code\\icon.png;.")
-        self.options_edit.setToolTip("输入自定义的 PyInstaller 参数。")
-        advanced_settings_layout.addWidget(options_label, 1, 0)
-        advanced_settings_layout.addWidget(self.options_edit, 1, 1)
+        # 用按钮来选择需要打包的“附加文件”
+        extra_file_label = QLabel("附加文件:")
+        self.select_file_button = QPushButton("选择文件")
+        self.select_file_button.setToolTip("点击选择一个要与脚本一起打包的文件。将自动生成 --add-data 参数。")
+        self.select_file_button.clicked.connect(self.choose_extra_file)
+
+        advanced_settings_layout.addWidget(extra_file_label, 1, 0)
+        advanced_settings_layout.addWidget(self.select_file_button, 1, 1)
 
         advanced_settings_group.setLayout(advanced_settings_layout)
         settings_layout.addWidget(advanced_settings_group, 3, 0, 1, 2)
@@ -677,28 +302,22 @@ class MainWindow(QMainWindow):
         return settings_group
 
     def init_button_group(self) -> QHBoxLayout:
-        """初始化开始和取消转换按钮"""
+        """初始化【开始转换】【取消转换】按钮"""
         button_layout = QHBoxLayout()
 
         self.start_button = QPushButton("开始转换")
         self.start_button.setEnabled(False)
         self.start_button.setToolTip("开始将所选 Python 脚本转换为 EXE。")
-        self.start_button.setStyleSheet("QPushButton { font-size: 14px; padding: 6px; }")
         self.start_button.clicked.connect(self.start_conversion)
-        button_layout.addWidget(self.start_button)
 
         self.cancel_button = QPushButton("取消转换")
         self.cancel_button.setEnabled(False)
         self.cancel_button.setToolTip("取消正在进行的转换任务。")
-        self.cancel_button.setStyleSheet("QPushButton { font-size: 14px; padding: 6px; }")
         self.cancel_button.clicked.connect(self.cancel_conversion)
+
+        button_layout.addWidget(self.start_button)
         button_layout.addWidget(self.cancel_button)
-
         return button_layout
-
-    def connect_signals(self):
-        """可根据需求添加全局信号连接，目前暂无特殊需求"""
-        pass
 
     def add_script_path(self, path: str):
         """添加脚本路径到列表中"""
@@ -709,7 +328,7 @@ class MainWindow(QMainWindow):
             self.update_start_button_state()
 
     def browse_files(self):
-        """浏览并添加Python脚本文件"""
+        """浏览并添加 Python 脚本文件"""
         script_paths, _ = QFileDialog.getOpenFileNames(self, "选择 Python 文件", "", "Python Files (*.py)")
         if script_paths:
             added = False
@@ -721,6 +340,19 @@ class MainWindow(QMainWindow):
                     added = True
             if added:
                 self.update_start_button_state()
+
+    def remove_script(self, item: QListWidgetItem):
+        """移除选中的脚本路径"""
+        path = item.text()
+        if path in self.script_paths:
+            self.script_paths.remove(path)
+            self.script_list.takeItem(self.script_list.row(item))
+            self.append_status(f"已移除脚本: {path}")
+            self.update_start_button_state()
+
+    def update_start_button_state(self):
+        """根据是否有脚本，更新“开始转换”按钮状态"""
+        self.start_button.setEnabled(bool(self.script_paths))
 
     def browse_output_dir(self):
         """浏览并设置输出目录"""
@@ -734,14 +366,12 @@ class MainWindow(QMainWindow):
         if icon_path:
             self.icon_edit.setText(icon_path)
 
-    def remove_script(self, item: QListWidgetItem):
-        """移除脚本"""
-        path = item.text()
-        if path in self.script_paths:
-            self.script_paths.remove(path)
-            self.script_list.takeItem(self.script_list.row(item))
-            self.append_status(f"已移除脚本: {path}")
-            self.update_start_button_state()
+    def choose_extra_file(self):
+        """选择附加文件并保存路径"""
+        file_path, _ = QFileDialog.getOpenFileName(self, "选择附加文件", "", "所有文件 (*.*)")
+        if file_path:
+            self.extra_file_path = file_path
+            self.append_status(f"已选择附加文件: {file_path}")
 
     def start_conversion(self):
         """开始转换所有选中的脚本"""
@@ -756,13 +386,24 @@ class MainWindow(QMainWindow):
         file_version = self.version_edit.text().strip() or None
         copyright_info = self.copyright_edit.text().strip()
         extra_library = self.library_edit.text().strip() or None
-        additional_options = self.options_edit.text().strip() or None
 
+        # 如果文件版本号不为空，但格式不正确，则提示
         if file_version and not self.validate_version(file_version):
             QMessageBox.warning(self, "警告", "文件版本号格式不正确，应为 X.X.X.X (如 1.0.0.0)。")
             return
 
+        # -------------------
+        # 关键修复：去掉额外引号，并使用 --add-data=SRC;DEST (Windows) / SRC:DEST (其他)
+        # -------------------
+        additional_options = None
+        if self.extra_file_path:
+            separator = ';' if os.name == 'nt' else ':'
+            # 不要外层的引号，避免 PyInstaller 解析出错
+            additional_options = f'--add-data={self.extra_file_path}{separator}.'
+
+        # 禁用相关UI
         self.toggle_ui_elements(False)
+        # 清空日志
         self.status_text_edit.clear()
         self.append_status("开始转换...")
         self.progress_bar.show()
@@ -770,7 +411,8 @@ class MainWindow(QMainWindow):
 
         self.tasks = []
         self.task_widgets = {}
-        # 清空任务进度显示区域
+
+        # 清空任务进度区域
         for i in reversed(range(self.task_layout.count())):
             w = self.task_layout.itemAt(i).widget()
             if w:
@@ -793,6 +435,7 @@ class MainWindow(QMainWindow):
                 extra_library=extra_library,
                 additional_options=additional_options
             )
+            # 信号连接：把脚本路径一起传过去以区分不同任务
             runnable.signals.status_updated.connect(
                 lambda msg, sp=script_path: self.update_status(msg, sp)
             )
@@ -805,6 +448,7 @@ class MainWindow(QMainWindow):
             runnable.signals.conversion_failed.connect(
                 lambda err, sp=script_path: self.conversion_failed(err, sp)
             )
+
             self.thread_pool.start(runnable)
             self.tasks.append(runnable)
 
@@ -818,7 +462,7 @@ class MainWindow(QMainWindow):
             self.append_status("已请求取消转换任务。")
             self.status_bar.showMessage("取消转换...")
             self.cancel_button.setEnabled(False)
-            # 因为是主动取消，这里直接调用conversion_complete使UI恢复可用
+            # 因为主动取消，这里直接调用 conversion_complete 来恢复UI
             self.conversion_complete()
 
     def conversion_finished(self, exe_path: str, exe_size: int, script_path: str):
@@ -828,6 +472,7 @@ class MainWindow(QMainWindow):
         if task_widget:
             task_widget['status'].setText(f"转换成功! 文件: {exe_path} ({exe_size} KB)")
             task_widget['progress'].setValue(100)
+        # 若所有任务都结束，则执行收尾
         if all(not getattr(task, '_is_running', False) for task in self.tasks):
             self.conversion_complete()
 
@@ -838,23 +483,24 @@ class MainWindow(QMainWindow):
         if task_widget:
             task_widget['status'].setText(f"<span style='color:red;'>{error_message}</span>")
             task_widget['progress'].setValue(0)
+        # 若所有任务都结束，则执行收尾
         if all(not getattr(task, '_is_running', False) for task in self.tasks):
             self.conversion_complete()
 
     def conversion_complete(self):
-        """所有转换任务完成后的处理"""
+        """所有转换任务完成或取消后的处理"""
         self.toggle_ui_elements(True)
         self.progress_bar.hide()
         self.status_bar.showMessage("转换完成。")
         self.tasks = []
 
     def validate_version(self, version: str) -> bool:
-        """验证版本号格式"""
+        """验证版本号格式 (X.X.X.X)"""
         parts = version.split('.')
         return len(parts) == 4 and all(part.isdigit() for part in parts)
 
     def toggle_ui_elements(self, enabled: bool):
-        """启用或禁用UI元素"""
+        """启用或禁用与任务相关的 UI"""
         self.start_button.setEnabled(enabled and bool(self.script_paths))
         self.mode_combo.setEnabled(enabled)
         self.output_edit.setEnabled(enabled)
@@ -862,14 +508,14 @@ class MainWindow(QMainWindow):
         self.icon_edit.setEnabled(enabled)
         self.version_edit.setEnabled(enabled)
         self.library_edit.setEnabled(enabled)
-        self.options_edit.setEnabled(enabled)
         self.drop_area.setEnabled(enabled)
         self.script_list.setEnabled(enabled)
+        self.select_file_button.setEnabled(enabled)
         if enabled:
             self.cancel_button.setEnabled(False)
 
     def append_status(self, text: str):
-        """在日志中追加状态信息"""
+        """在日志文本框中追加状态信息，并更新状态栏"""
         logging.info(text)
         if "<span style='color:red;'>" in text:
             self.status_text_edit.setTextColor(QColor('red'))
@@ -892,12 +538,12 @@ class MainWindow(QMainWindow):
             task_widget['progress'].setValue(value)
 
     def show_manual(self):
-        """显示使用说明对话框"""
+        """显示“使用说明”对话框"""
         manual_dialog = ManualDialog(self)
         manual_dialog.exec_()
 
     def show_about(self):
-        """显示关于对话框"""
+        """显示“关于”对话框"""
         about_dialog = AboutDialog(self)
         about_dialog.exec_()
 
@@ -915,7 +561,13 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "警告", "日志文件不存在。")
 
     def create_task_widget(self, script_path: str) -> dict:
-        """创建一个任务的显示小部件"""
+        """
+        创建一个转换任务在UI上的显示小部件：
+        - 脚本名
+        - 进度条
+        - 状态文字
+        - 简要日志
+        """
         widget = QFrame()
         widget.setFrameShape(QFrame.StyledPanel)
         layout = QHBoxLayout(widget)
@@ -941,14 +593,16 @@ class MainWindow(QMainWindow):
         log.setToolTip("本任务的转换日志片段")
         layout.addWidget(log)
 
-        return {'widget': widget, 'script_label': script_label, 'progress': progress, 'status': status, 'log': log}
-
-    def update_start_button_state(self):
-        """更新开始按钮的启用状态"""
-        self.start_button.setEnabled(bool(self.script_paths))
+        return {
+            'widget': widget,
+            'script_label': script_label,
+            'progress': progress,
+            'status': status,
+            'log': log
+        }
 
     def closeEvent(self, event):
-        """关闭窗口前的处理"""
+        """关闭窗口前，尝试停止所有任务"""
         if hasattr(self, 'tasks') and self.tasks:
             for task in self.tasks:
                 task.stop()
@@ -958,12 +612,11 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+
     script_dir = os.path.dirname(os.path.abspath(__file__))
     icon_path = os.path.join(script_dir, 'icon.png')
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
-    else:
-        logging.warning(f"图标文件未找到: {icon_path}")
 
     window = MainWindow()
     window.show()
