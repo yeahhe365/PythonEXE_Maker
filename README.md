@@ -1,5 +1,9 @@
 # PythonEXE Maker
 
+<p align="center">
+  <a href="./README.md">中文</a> | <a href="./README.en.md">English</a>
+</p>
+
 ![iogo](https://github.com/user-attachments/assets/b78ea5b7-537b-4416-b886-394ffc291014)
 
 
